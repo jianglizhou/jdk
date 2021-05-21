@@ -82,6 +82,18 @@ G1BlockOffsetTablePart::G1BlockOffsetTablePart(G1BlockOffsetTable* array, HeapRe
 {
 }
 
+void G1BlockOffsetTablePart::populate() {
+  HeapWord* st = _hr->bottom();
+  HeapWord* end = _hr->top();
+
+  HeapWord* q = st;
+  while (q < end) {
+    HeapWord* n = q + block_size(q);
+    alloc_block(q, n);
+    q = n;
+  }
+}
+
 // The arguments follow the normal convention of denoting
 // a right-open interval: [start, end)
 void G1BlockOffsetTablePart:: set_remainder_to_point_to_start(HeapWord* start, HeapWord* end) {
