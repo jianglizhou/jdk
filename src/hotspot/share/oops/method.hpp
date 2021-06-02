@@ -785,8 +785,6 @@ public:
   static void change_method_associated_with_jmethod_id(jmethodID old_jmid_ptr, Method* new_method);
   static bool is_method_id(jmethodID mid);
 
-  // Clear methods
-  static void clear_jmethod_ids(ClassLoaderData* loader_data);
   static void print_jmethod_ids_count(const ClassLoaderData* loader_data, outputStream* out) PRODUCT_RETURN;
 
   // Get this method's jmethodID -- allocate if it doesn't exist
@@ -990,6 +988,57 @@ public:
   // Inlined elements
   address* native_function_addr() const          { assert(is_native(), "must be native"); return (address*) (this+1); }
   address* signature_handler_addr() const        { return native_function_addr() + 1; }
+};
+
+#define MIN_BLOCK_SIZE 8
+
+class JNIMethodBlockNode : public CHeapObj<mtClass> {
+  friend class JNIMethodBlock;
+  Method**        _methods;
+  int             _number_of_methods;
+  int             _top;
+  JNIMethodBlockNode* _next;
+
+ public:
+
+  JNIMethodBlockNode(int num_methods = MIN_BLOCK_SIZE);
+
+  ~JNIMethodBlockNode() { FREE_C_HEAP_ARRAY(Method*, _methods); }
+
+  void ensure_methods(int num_addl_methods);
+};
+
+class JNIMethodBlock : public CHeapObj<mtClass> {
+  JNIMethodBlockNode *_head;
+  JNIMethodBlockNode *_last_free;
+ public:
+  static Method* const _free_method;
+
+  JNIMethodBlock(int initial_capacity = MIN_BLOCK_SIZE);
+
+  ~JNIMethodBlock() {
+    JNIMethodBlockNode* b = _head;
+    while (b != NULL) {
+      JNIMethodBlockNode* next_b = b->_next;
+      delete b;
+      b = next_b;
+    }
+    _last_free = NULL;
+  }
+
+  void ensure_methods(int num_addl_methods) {
+    _last_free->ensure_methods(num_addl_methods);
+  }
+
+  Method** add_method(Method* m);
+
+  bool contains(Method** m);
+
+  void destroy_method(Method** m);
+
+#ifndef PRODUCT
+  int count_methods();
+#endif
 };
 
 

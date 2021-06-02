@@ -694,14 +694,9 @@ ClassLoaderData::~ClassLoaderData() {
     _metaspace = NULL;
     delete m;
   }
-  // Clear all the JNI handles for methods
-  // These aren't deallocated and are going to look like a leak, but that's
-  // needed because we can't really get rid of jmethodIDs because we don't
-  // know when native code is going to stop using them.  The spec says that
-  // they're "invalid" but existing programs likely rely on their being
-  // NULL after class unloading.
+  // Deallocate all the JNI handles for methods.
   if (_jmethod_ids != NULL) {
-    Method::clear_jmethod_ids(this);
+    delete _jmethod_ids;
   }
   // Delete lock
   delete _metaspace_lock;
