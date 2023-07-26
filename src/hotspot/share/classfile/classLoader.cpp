@@ -920,8 +920,9 @@ void* ClassLoader::dll_lookup(void* lib, const char* name, const char* path) {
 
 void ClassLoader::load_java_library() {
   assert(CanonicalizeEntry == nullptr, "should not load java library twice");
-  CanonicalizeEntry = CAST_TO_FN_PTR(canonicalize_fn_t, os::lookup_function("JDK_Canonicalize"));
-  if (CanonicalizeEntry != nullptr) {
+  if (is_static_jdk()) {
+    CanonicalizeEntry = CAST_TO_FN_PTR(canonicalize_fn_t, os::lookup_function("JDK_Canonicalize"));
+    assert(CanonicalizeEntry != nullptr, "no JDK_Canonicalize");
     return;
   }
 
@@ -943,11 +944,9 @@ void ClassLoader::release_load_zip_library() {
 
 void ClassLoader::load_zip_library() {
   assert(ZipOpen == nullptr, "should not load zip library twice");
-  char path[JVM_MAXPATHLEN];
-  char ebuf[1024];
 
   // Check if we are running on a static build.
-  if (os::lookup_function("ZIP_Open") != nullptr) {
+  if (is_static_jdk()) {
     ZipOpen = CAST_TO_FN_PTR(ZipOpen_t, os::lookup_function("ZIP_Open"));
     ZipClose = CAST_TO_FN_PTR(ZipClose_t, os::lookup_function("ZIP_Close"));
     FindEntry = CAST_TO_FN_PTR(FindEntry_t, os::lookup_function("ZIP_FindEntry"));
@@ -955,6 +954,9 @@ void ClassLoader::load_zip_library() {
     Crc32 = CAST_TO_FN_PTR(Crc32_t, os::lookup_function("ZIP_CRC32"));
     return;
   }
+
+  char path[JVM_MAXPATHLEN];
+  char ebuf[1024];
 
   if (os::dll_locate_lib(path, sizeof(path), Arguments::get_dll_dir(), "zip")) {
     _zip_handle = os::dll_load(path, ebuf, sizeof ebuf);
@@ -972,18 +974,19 @@ void ClassLoader::load_zip_library() {
 
 void ClassLoader::load_jimage_library() {
   assert(JImageOpen == nullptr, "should not load jimage library twice");
-  char path[JVM_MAXPATHLEN];
-  char ebuf[1024];
-  void* handle = nullptr;
 
   // Check if we are running on a static build.
-  if (os::lookup_function("JIMAGE_Open") != nullptr) {
+  if (is_static_jdk()) {
     JImageOpen = CAST_TO_FN_PTR(JImageOpen_t, os::lookup_function("JIMAGE_Open"));
     JImageClose = CAST_TO_FN_PTR(JImageClose_t, os::lookup_function("JIMAGE_Close"));
     JImageFindResource = CAST_TO_FN_PTR(JImageFindResource_t, os::lookup_function("JIMAGE_FindResource"));
     JImageGetResource = CAST_TO_FN_PTR(JImageGetResource_t, os::lookup_function("JIMAGE_GetResource"));
     return;
   }
+
+  char path[JVM_MAXPATHLEN];
+  char ebuf[1024];
+  void* handle = nullptr;
 
   if (os::dll_locate_lib(path, sizeof(path), Arguments::get_dll_dir(), "jimage")) {
     handle = os::dll_load(path, ebuf, sizeof ebuf);
